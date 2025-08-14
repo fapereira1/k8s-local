@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+
+# Evite -e global aqui para que erros de handlers não matem o loop do menu
+set -Euo pipefail
+
+# Raiz do projeto
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Carrega libs
+source "$ROOT_DIR/lib/common.sh"
+source "$ROOT_DIR/lib/registry.sh"
+
+# Carrega .env se existir
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
+# Carrega módulos
+if ls "$ROOT_DIR/modules/"*.sh >/dev/null 2>&1; then
+  for mod in "$ROOT_DIR/modules/"*.sh; do
+    [[ -r "$mod" ]] && source "$mod"
+  done
+fi
+
+# Execução direta: ./bin/cli <cmd> [args...]
+if [[ $# -gt 0 ]]; then
+  cmd="$1"; shift || true
+  if registry_has "$cmd"; then
+    run_command "$cmd" "$@"
+    exit $?
+  else
+    log_error "Comando desconhecido: $cmd"
+    echo
+  fi
+fi
+
+# Sem args -> menu em loop
+while true; do
+  show_menu || break
+done
